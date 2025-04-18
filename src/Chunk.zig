@@ -16,9 +16,10 @@ items: []u8,
 constants: ValueArray,
 lines: []usize,
 
-const OpCode = enum(u8) {
+pub const OpCode = enum(u8) {
     @"return",
-    constant
+    constant,
+    negate,
 };
 
 
@@ -79,7 +80,7 @@ pub fn disassemble(chunk: *const Chunk, name: []const u8) void {
 
 }
 
-fn disassembleInstruction(chunk: *const Chunk, offset: usize) usize {
+pub fn disassembleInstruction(chunk: *const Chunk, offset: usize) usize {
     std.debug.print("{d:04} ", .{offset});
 
 
@@ -142,7 +143,7 @@ test "write return" {
 
     try chunk.writeByte(allocator, @intFromEnum(OpCode.@"return"), 1);
 
-    chunk.disassemble("test chunk");
+    // chunk.disassemble("test chunk");
 
 }
 
@@ -160,6 +161,6 @@ test "constants" {
     try chunk.writeByte(allocator, @intCast(constant), 1);
     try chunk.writeOp(allocator, .@"return", 1);
 
-    chunk.disassemble("test chunk");
+    // chunk.disassemble("test chunk");
 
 }

@@ -1,12 +1,34 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const lib = @import("zlox");
 
+const VirtualMachine = @import("VirtualMachine.zig");
 const Chunk = @import("Chunk.zig");
+var debug_allocator: std.heap.DebugAllocator(.{}) = .init;
 
 pub fn main() !void {
 
-    const chunk: Chunk = .init;
-    _ = chunk;
+    const gpa, const is_debug = gpa: {
+        break :gpa switch (builtin.mode) {
+            .Debug, .ReleaseSafe => .{ debug_allocator.allocator(), true},
+            .ReleaseSmall, .ReleaseFast => .{ std.heap.smp_allocator, false }
+        };
+    };
+    defer if (is_debug) {
+        _ = debug_allocator.deinit();
+    };
+
+    var chunk: Chunk = .init;
+    defer chunk.deinit(gpa);
+
+    try chunk.writeOp(gpa, .@"return", 1);
+
+    var vm: VirtualMachine = .init(&chunk);
+    // defer vm.deinit(gpa);
+
+    const result = vm.interpret();
+
+    std.debug.print("vm: {}\n", .{result});
 
 }
 
