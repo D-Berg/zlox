@@ -1,11 +1,19 @@
 const std = @import("std");
 const lib = @import("zlox");
 
+const Chunk = @import("Chunk.zig");
+
 pub fn main() !void {
+
+    const chunk: Chunk = .init;
+    _ = chunk;
 
 }
 
 
+test "all" {
+    std.testing.refAllDeclsRecursive(@This());
+}
 
 // test "fuzz example" {
 //     const Context = struct {
