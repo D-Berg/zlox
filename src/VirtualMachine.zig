@@ -6,6 +6,11 @@ const value = @import("value.zig");
 const Value = value.Value;
 const VirtualMachine = @This();
 
+pub const VMError = error {
+    StackOverFlow,
+    StackUnderFlow,
+};
+
 const log = std.log.scoped(.@"VM");
 
 const Allocator = std.mem.Allocator;
@@ -34,6 +39,8 @@ pub fn init(chunk: *Chunk) VirtualMachine {
 
     vm.resetStack();
 
+    // when returning top gets invalidated
+    
     return vm;
 }
 
@@ -42,10 +49,10 @@ pub fn init(chunk: *Chunk) VirtualMachine {
 //     vm.chunk.deinit(allocator);
 // }
 
-pub fn interpret(vm: *VirtualMachine) InterpreterResult {
+pub fn interpret(vm: *VirtualMachine) VMError!InterpreterResult {
     log.debug("interpreting...", .{});
     vm.resetStack();
-    return vm.run();
+    return try vm.run();
 }
 
 inline fn resetStack(vm: *VirtualMachine) void {
@@ -53,20 +60,16 @@ inline fn resetStack(vm: *VirtualMachine) void {
     log.debug("top_start = {*}", .{vm.top});
 }
 
-fn run(vm: *VirtualMachine) InterpreterResult {
+fn run(vm: *VirtualMachine) VMError!InterpreterResult {
 
     log.debug("running...", .{});
-
 
     while (true) {
 
         if (builtin.mode == .Debug) {
             std.debug.print("stack: ", .{});
-            const stack_start = vm.stack[0..1].ptr;
 
-            log.debug("top = {*}, stack_start: {*}", .{vm.top, stack_start});
-            
-            const stack_len = vm.top - stack_start;
+            const stack_len: usize = vm.stackLen();
             log.debug("stack_len = {}", .{stack_len});
 
             for (vm.stack[0..stack_len]) |val| {
@@ -84,13 +87,13 @@ fn run(vm: *VirtualMachine) InterpreterResult {
         switch (instruction) {
 
             @intFromEnum(OpCode.@"return") => {
-                std.debug.print("{d}\n", .{vm.pop()});
+                std.debug.print("{d}\n", .{try vm.pop()});
                 return InterpreterResult.ok;
             },
 
             @intFromEnum(OpCode.constant) => {
                 const constant: Value = vm.readConstant();
-                vm.push(constant);
+                try vm.push(constant);
                 // std.debug.print("{}", .{constant});
             },
 
@@ -104,16 +107,27 @@ fn run(vm: *VirtualMachine) InterpreterResult {
 }
 
 // TODO: err when top is outside of range
-fn push(vm: *VirtualMachine, v: Value) void {
+fn push(vm: *VirtualMachine, v: Value) VMError!void {
     vm.top[0] = v;
     log.debug("top = {*}", .{vm.top});
+    if (vm.stackLen() >= STACK_MAX) return VMError.StackOverFlow;
     vm.top += 1;
     log.debug("top = {*}", .{vm.top});
 }
 
-fn pop(vm: *VirtualMachine) Value {
+fn pop(vm: *VirtualMachine) VMError!Value {
+    if (vm.stackLen() <= 0) return VMError.StackUnderFlow;
     vm.top -= 1;
     return vm.top[0];
+}
+
+inline fn stackLen(vm: *VirtualMachine) usize {
+    const stack_start: [*]Value = vm.stack[0..1].ptr;
+    const len = vm.top - stack_start;
+
+    log.debug("stack_len = {}", .{len});
+
+    return len;
 }
 
 pub inline fn readByte(vm: *VirtualMachine) u8 {
@@ -147,7 +161,7 @@ test "VirtualMachine" {
     var vm: VirtualMachine = .init(&chunk);
     // defer vm.deinit(gpa);
 
-    const result = vm.interpret();
+    const result = try vm.interpret();
 
     std.debug.print("vm: {}\n", .{result});
 }    

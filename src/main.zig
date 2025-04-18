@@ -21,12 +21,16 @@ pub fn main() !void {
     var chunk: Chunk = .init;
     defer chunk.deinit(gpa);
 
+    const constant = try chunk.addConstant(gpa, 1.2);
+
+    try chunk.writeOp(gpa, .constant, 1);
+    try chunk.writeByte(gpa, @intCast(constant), 1);
     try chunk.writeOp(gpa, .@"return", 1);
 
     var vm: VirtualMachine = .init(&chunk);
     // defer vm.deinit(gpa);
 
-    const result = vm.interpret();
+    const result = try vm.interpret();
 
     std.debug.print("vm: {}\n", .{result});
 
