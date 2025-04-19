@@ -106,7 +106,6 @@ fn run(vm: *VirtualMachine) VMError!InterpreterResult {
     }
 }
 
-// TODO: err when top is outside of range
 fn push(vm: *VirtualMachine, v: Value) VMError!void {
     vm.top[0] = v;
     log.debug("top = {*}", .{vm.top});
