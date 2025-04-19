@@ -1,12 +1,39 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const lib = @import("zlox");
 
 const VirtualMachine = @import("VirtualMachine.zig");
 const Chunk = @import("Chunk.zig");
+const Repl = @import("Repl.zig");
 var debug_allocator: std.heap.DebugAllocator(.{}) = .init;
 
+const LoxError = error {
+    UnsupportedNumberOfArgs,
+};
+
 pub fn main() !void {
+
+    runLox() catch |err| {
+        if (builtin.mode == .Debug) {
+            return err;
+        } 
+
+        switch (err) { // exit with status code
+            LoxError.UnsupportedNumberOfArgs => {
+                std.process.exit(2);
+            },
+            else => {
+                std.process.exit(69);
+            }
+        }
+
+    };
+
+
+
+}
+
+
+fn runLox() !void {
 
     const gpa, const is_debug = gpa: {
         break :gpa switch (builtin.mode) {
@@ -18,24 +45,29 @@ pub fn main() !void {
         _ = debug_allocator.deinit();
     };
 
-    var chunk: Chunk = .init;
-    defer chunk.deinit(gpa);
+    const args = try std.process.argsAlloc(gpa);
+    defer std.process.argsFree(gpa, args);
 
-    const constant = try chunk.addConstant(gpa, 1.2);
+    const stdout = std.io.getStdOut().writer();
+    const stdin = std.io.getStdOut().reader();
+    const stderr = std.io.getStdOut().writer();
 
-    try chunk.writeOp(gpa, .constant, 1);
-    try chunk.writeByte(gpa, @intCast(constant), 1);
-    try chunk.writeOp(gpa, .@"return", 1);
+    switch (args.len) {
+        1 => {
+            try Repl.run(gpa, stdout.any(), stdin.any(), stderr.any());
+        }, 
+        2 => {
+            // TODO: read file 
+            return;
 
-    var vm: VirtualMachine = .init(&chunk);
-    // defer vm.deinit(gpa);
-
-    const result = try vm.interpret();
-
-    std.debug.print("vm: {}\n", .{result});
+        },
+        else => {
+            try stderr.print("Usage: zlox [path]\n", .{});
+            return LoxError.UnsupportedNumberOfArgs;
+        }
+    }
 
 }
-
 
 test "all" {
     std.testing.refAllDeclsRecursive(@This());
