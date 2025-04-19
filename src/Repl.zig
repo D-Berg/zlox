@@ -5,6 +5,8 @@ const AnyReader = std.io.AnyReader;
 const AnyWriter = std.io.AnyWriter;
 const ArrayList = std.ArrayListUnmanaged;
 
+const Scanner = @import("Scanner.zig");
+
 pub fn run(gpa: Allocator, writer: AnyWriter, reader: AnyReader, err_writer: AnyWriter) !void {
     _ = err_writer;
 
