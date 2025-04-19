@@ -24,8 +24,31 @@ pub fn run(gpa: Allocator, writer: AnyWriter, reader: AnyReader, err_writer: Any
 
         if (std.mem.eql(u8, "exit", line)) return; 
 
-
-
     }
 
 }
+
+test "exit" {
+    const allocator = std.testing.allocator;
+
+    var out_buffer: [300]u8 = undefined;
+    var in_buffer: [300]u8 = undefined;
+    var err_buffer: [300]u8 = undefined;
+
+    var stdout = std.io.fixedBufferStream(out_buffer[0..]);
+    var stdin = std.io.fixedBufferStream(in_buffer[0..]);
+    var stderr = std.io.fixedBufferStream(err_buffer[0..]);
+
+    _ = try stdin.write("jeowfjoejoiw\nexit\n");
+
+    stdin.reset();
+
+    try run(
+        allocator, 
+        stdout.writer().any(), 
+        stdin.reader().any(), 
+        stderr.writer().any()
+    );
+
+}
+

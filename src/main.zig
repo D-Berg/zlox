@@ -27,9 +27,6 @@ pub fn main() !void {
         }
 
     };
-
-
-
 }
 
 
@@ -59,7 +56,6 @@ fn runLox() !void {
         2 => {
             // TODO: read file 
             return;
-
         },
         else => {
             try stderr.print("Usage: zlox [path]\n", .{});
