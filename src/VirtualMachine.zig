@@ -5,6 +5,9 @@ const Chunk = @import("Chunk.zig");
 const value = @import("value.zig");
 const Value = value.Value;
 const VirtualMachine = @This();
+const compiler = @import("compiler.zig");
+const compile = compiler.compile;
+
 
 pub const VMError = error {
     StackOverFlow,
@@ -49,9 +52,20 @@ pub fn init(chunk: *Chunk) VirtualMachine {
 //     vm.chunk.deinit(allocator);
 // }
 
-pub fn interpret(vm: *VirtualMachine) VMError!InterpreterResult {
+pub fn interpret(vm: *VirtualMachine, gpa: Allocator, source: []const u8) VMError!InterpreterResult {
     log.debug("interpreting...", .{});
-    vm.resetStack();
+
+    var chunk: Chunk = .init;
+    defer chunk.deinit(gpa);
+
+    compile(gpa, source, &chunk) catch |err| switch (err) {
+        Allocator.Error.OutOfMemory => return err,
+        else => return InterpreterResult.compile_error,
+    };
+    
+    vm.chunk = &chunk;
+    vm.ip = vm.chunk.items[0..1].ptr;
+
     return try vm.run();
 }
 
@@ -144,7 +158,7 @@ pub inline fn readConstant(vm: *VirtualMachine) Value {
 
 }
 
-test "VirtualMachine" {
+test "run" {
     // std.testing.log_level = .debug;
     const gpa = std.testing.allocator;
 
@@ -160,7 +174,9 @@ test "VirtualMachine" {
     var vm: VirtualMachine = .init(&chunk);
     // defer vm.deinit(gpa);
 
-    const result = try vm.interpret();
+    vm.resetStack();
+
+    const result = try vm.run();
 
     std.debug.print("vm: {}\n", .{result});
 }    
