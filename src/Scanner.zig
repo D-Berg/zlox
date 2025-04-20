@@ -62,7 +62,6 @@ pub const Token = struct {
         @"while",
 
         @"error",
-        eof
     };
 };
 
@@ -107,7 +106,6 @@ pub fn next(scanner: *Scanner) ?Token {
                 while (scanner.peek() != '\n' and !scanner.isAtEnd()) {
                     _ = scanner.advance();
                 }
-                scanner.line += 1;
                 return scanner.next();
             }
             return scanner.makeToken(.slash);
@@ -133,6 +131,7 @@ pub fn next(scanner: *Scanner) ?Token {
         0 => return null,
         else => |char| {
             if (isDigit(char)) return scanner.makeNumberToken();
+            if (isAlpha(char)) return scanner.makeIdentifeirOrKeyWordToken();
 
             log.debug("unrecognized char '{c}'", .{c});
             return null;
@@ -244,47 +243,73 @@ fn makeNumberToken(scanner: *Scanner) Token {
 
 }
 
+fn makeIdentifeirOrKeyWordToken(scanner: *Scanner) Token {
+    while (isAlpha(scanner.peek()) or isDigit(scanner.peek())) {
+        _ = scanner.advance();
+    }
+    if (scanner.makeKeyWordToken()) |keyword| return keyword;
+    return scanner.makeToken(.identifier);
+}
+
+fn makeKeyWordToken(scanner: *Scanner) ?Token {
+
+    const str = scanner.source[scanner.start..scanner.current];
+
+    if (std.meta.stringToEnum(Token.Kind, str)) |kind| {
+        switch (kind) {
+            .@"and", .class, .@"else", .@"false",
+            .@"for", .fun, .@"if", .nil, .@"or",
+            .print, .@"return", .super, .this, .@"true",
+            .@"var", .@"while" => return scanner.makeToken(kind),
+            else =>  return null,
+        }
+    } 
+
+    return null;
+}
+
 fn isDigit(char: u8) bool {
     return char >= '0' and char <= '9';
 }
 
+fn isAlpha(char: u8) bool {
+    return (char >= 'A' and char <= 'Z') or 
+        (char >= 'a' and char <= 'z') or
+        char == '_';
+}
 
 test "scanner" {
 
-    std.testing.log_level = .debug;
+    // std.testing.log_level = .w;
 
     const input =
         \\( ) { } ;
         \\, . - + / *
         \\"Hello, world!";
-        \\"Hello, world!
         \\1234; // An integer.
-        // \\12.34; // A decimal number.
+        \\12.34; // A decimal number.
+        \\add + me;
+        \\if
+        \\
+        \\
+        \\""; // The empty string.
+        // \\subtract - me;
+        // \\multiply * me;
+        // \\divide / me;
+        // \\-negateMe;
+        // \\
+        // \\less < than;
+        // \\lessThan <= orEqual;
+        // \\greater > than;
+        // \\greaterThan >= orEqual;
+        // \\
+        // \\1 == 2; // false.
+        // \\"cat" != "dog"; // true.
+        // \\314 == "pi"; // false.
+        // \\123 == "123"; // false.
+        // \\!true; // false.
+        // \\!false; // true.
     ;
-    //     \\
-    //     \\
-    //     \\"I am a string";
-    //     \\""; // The empty string.
-    //     \\"123"; // This is a string, not a number.
-    //     \\
-    //     \\add + me;
-    //     \\subtract - me;
-    //     \\multiply * me;
-    //     \\divide / me;
-    //     \\-negateMe;
-    //     \\
-    //     \\less < than;
-    //     \\lessThan <= orEqual;
-    //     \\greater > than;
-    //     \\greaterThan >= orEqual;
-    //     \\
-    //     \\1 == 2; // false.
-    //     \\"cat" != "dog"; // true.
-    //     \\314 == "pi"; // false.
-    //     \\123 == "123"; // false.
-    //     \\!true; // false.
-    //     \\!false; // true.
-    // ;
 
     const answers = [_]Token {
         Token { .kind = .left_paren, .literal = "(", .line = 1 },
@@ -300,19 +325,28 @@ test "scanner" {
         Token { .kind = .star, .literal = "*", .line = 2 },
         Token { .kind = .string, .literal = "Hello, world!", .line = 3 },
         Token { .kind = .semicolon, .literal = ";", .line = 3 },
-        Token { .kind = .@"error", .literal = "Unterminated string", .line = 4 },
-        Token { .kind = .number, .literal = "1234", .line = 5 },
+        Token { .kind = .number, .literal = "1234", .line = 4 },
+        Token { .kind = .semicolon, .literal = ";", .line = 4 },
+        Token { .kind = .number, .literal = "12.34", .line = 5 },
         Token { .kind = .semicolon, .literal = ";", .line = 5 },
-        // Token { .kind = .number, .literal = "12.34", .line = 6 },
-        // Token { .kind = .semicolon, .literal = ";", .line = 6 },
+        Token { .kind = .identifier, .literal = "add", .line = 6 },
+        Token { .kind = .plus, .literal = "+", .line = 6 },
+        Token { .kind = .identifier, .literal = "me", .line = 6 },
+        Token { .kind = .semicolon, .literal = ";", .line = 6 },
+        Token { .kind = .@"if", .literal = "if", .line = 7 },
+        Token { .kind = .string, .literal = "", .line = 10 },
+        Token { .kind = .semicolon, .literal = ";", .line = 10 },
+
+
     };
+
 
     var scanner: Scanner = .init(input[0..]);
 
     var i: usize = 0;
 
     while (scanner.next()) |token| : (i += 1) {
-        std.debug.print("token = {}\n", .{token});
+        log.debug("token = {}\n", .{token});
         const expected_token = answers[i];
 
         try expectEqual(expected_token.kind, token.kind);
