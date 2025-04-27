@@ -354,7 +354,6 @@ test "scanner" {
         try expectEqual(expected_token.line, token.line);
     }
 
-    std.debug.print("i = {}\n", .{i});
     try expectEqual(answers.len, i);
 
 }
