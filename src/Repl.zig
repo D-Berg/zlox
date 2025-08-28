@@ -1,56 +1,49 @@
 const std = @import("std");
 
 const Allocator = std.mem.Allocator;
-const AnyReader = std.io.AnyReader;
-const AnyWriter = std.io.AnyWriter;
+const Reader = std.Io.Reader;
+const Writer = std.Io.Writer;
+const assert = std.debug.assert;
+
 const ArrayList = std.ArrayListUnmanaged;
 
 const Scanner = @import("Scanner.zig");
 
-pub fn run(gpa: Allocator, writer: AnyWriter, reader: AnyReader, err_writer: AnyWriter) !void {
-    _ = err_writer;
+pub fn run(gpa: Allocator, in: *Reader, out: *Writer, err_out: *Writer) !void {
+    _ = gpa;
+    _ = err_out;
 
+    var buf: [1024]u8 = undefined;
+    var w = std.Io.Writer.fixed(&buf);
     while (true) {
+        try out.print("> ", .{});
+        try out.flush();
 
-        try writer.print("> ", .{});
-    
-        var line_list: ArrayList(u8) = .empty;
-        errdefer line_list.deinit(gpa);
+        const n = try in.streamDelimiter(&w, '\n');
+        in.toss(1);
 
-        const line_writer = line_list.writer(gpa);
+        const line = w.buffer[0..n];
 
-        try reader.streamUntilDelimiter(line_writer, '\n', null);
+        if (std.mem.eql(u8, "exit", line)) return;
 
-        const line = try line_list.toOwnedSlice(gpa);
-        defer gpa.free(line);
-
-        if (std.mem.eql(u8, "exit", line)) return; 
-
+        assert(n == w.consume(n));
     }
-
 }
 
 test "exit" {
     const allocator = std.testing.allocator;
 
-    var out_buffer: [300]u8 = undefined;
     var in_buffer: [300]u8 = undefined;
+    var out_buffer: [300]u8 = undefined;
     var err_buffer: [300]u8 = undefined;
 
-    var stdout = std.io.fixedBufferStream(out_buffer[0..]);
-    var stdin = std.io.fixedBufferStream(in_buffer[0..]);
-    var stderr = std.io.fixedBufferStream(err_buffer[0..]);
+    const input = "jeowfjoejoiw\nexit\n";
 
-    _ = try stdin.write("jeowfjoejoiw\nexit\n");
+    @memcpy(in_buffer[0..input.len], input[0..]);
 
-    stdin.reset();
+    var stdin = std.Io.Reader.fixed(in_buffer[0..]);
+    var stdout = std.io.Writer.fixed(out_buffer[0..]);
+    var stderr = std.Io.Writer.fixed(err_buffer[0..]);
 
-    try run(
-        allocator, 
-        stdout.writer().any(), 
-        stdin.reader().any(), 
-        stderr.writer().any()
-    );
-
+    try run(allocator, &stdin, &stdout, &stderr);
 }
-

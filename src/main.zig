@@ -6,16 +6,15 @@ const Chunk = @import("Chunk.zig");
 const Repl = @import("Repl.zig");
 var debug_allocator: std.heap.DebugAllocator(.{}) = .init;
 
-const LoxError = error {
+const LoxError = error{
     UnsupportedNumberOfArgs,
 };
 
 pub fn main() !void {
-
     runLox() catch |err| {
         if (builtin.mode == .Debug) {
             return err;
-        } 
+        }
 
         switch (err) { // exit with status code
             LoxError.UnsupportedNumberOfArgs => {
@@ -23,19 +22,28 @@ pub fn main() !void {
             },
             else => {
                 std.process.exit(69);
-            }
+            },
         }
-
     };
 }
 
+var stdout_buf: [1024]u8 = undefined;
+var stdin_buf: [1024]u8 = undefined;
+var stderr_buf: [1024]u8 = undefined;
+
+var stdin_reader = std.fs.File.stdin().reader(&stdin_buf);
+var stdout_writer = std.fs.File.stdout().writer(&stdout_buf);
+var stderr_writer = std.fs.File.stderr().writer(&stderr_buf);
+
+const stdin = &stdin_reader.interface;
+const stdout = &stdout_writer.interface;
+const stderr = &stderr_writer.interface;
 
 fn runLox() !void {
-
     const gpa, const is_debug = gpa: {
         break :gpa switch (builtin.mode) {
-            .Debug, .ReleaseSafe => .{ debug_allocator.allocator(), true},
-            .ReleaseSmall, .ReleaseFast => .{ std.heap.smp_allocator, false }
+            .Debug, .ReleaseSafe => .{ debug_allocator.allocator(), true },
+            .ReleaseSmall, .ReleaseFast => .{ std.heap.smp_allocator, false },
         };
     };
     defer if (is_debug) {
@@ -45,24 +53,20 @@ fn runLox() !void {
     const args = try std.process.argsAlloc(gpa);
     defer std.process.argsFree(gpa, args);
 
-    const stdout = std.io.getStdOut().writer();
-    const stdin = std.io.getStdOut().reader();
-    const stderr = std.io.getStdOut().writer();
-
     switch (args.len) {
         1 => {
-            try Repl.run(gpa, stdout.any(), stdin.any(), stderr.any());
-        }, 
+            try Repl.run(gpa, stdin, stdout, stderr);
+        },
         2 => {
-            // TODO: read file 
+            // TODO: read file
             return;
         },
         else => {
             try stderr.print("Usage: zlox [path]\n", .{});
+            try stderr.flush();
             return LoxError.UnsupportedNumberOfArgs;
-        }
+        },
     }
-
 }
 
 test "all" {
