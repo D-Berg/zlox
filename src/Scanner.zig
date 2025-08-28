@@ -1,5 +1,5 @@
 const std = @import("std");
-const log = std.log.scoped(.@"Scanner");
+const log = std.log.scoped(.Scanner);
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const expectEqualSlices = std.testing.expectEqualSlices;
@@ -17,8 +17,10 @@ pub const Token = struct {
 
     pub const Kind = enum {
         // single char
-        left_paren, right_paren,
-        left_brace, right_brace,
+        left_paren,
+        right_paren,
+        left_brace,
+        right_brace,
         comma,
         dot,
         minus,
@@ -36,18 +38,17 @@ pub const Token = struct {
         greater_equal,
         less,
         less_equal,
-        
+
         // Literals
         identifier,
         string,
         number,
-        
 
         // keywords
         @"and",
         class,
         @"else",
-        @"false",
+        false,
         @"for",
         fun,
         @"if",
@@ -57,7 +58,7 @@ pub const Token = struct {
         @"return",
         super,
         this,
-        @"true",
+        true,
         @"var",
         @"while",
 
@@ -65,19 +66,12 @@ pub const Token = struct {
     };
 };
 
-
 pub fn init(source: []const u8) Scanner {
     log.debug("source_len = {}", .{source.len});
-    return .{
-        .start = 0,
-        .current = 0,
-        .line = 1,
-        .source = source
-    };
+    return .{ .start = 0, .current = 0, .line = 1, .source = source };
 }
 
 pub fn next(scanner: *Scanner) ?Token {
-
     log.debug("scanning...", .{});
 
     log.debug("skipping whitespace...", .{});
@@ -89,7 +83,7 @@ pub fn next(scanner: *Scanner) ?Token {
     if (scanner.isAtEnd()) return null;
 
     const c = scanner.advance();
-    log.debug("current char = '{c}', {}", .{c, c});
+    log.debug("current char = '{c}', {}", .{ c, c });
 
     switch (c) {
         '(' => return scanner.makeToken(.left_paren),
@@ -135,12 +129,12 @@ pub fn next(scanner: *Scanner) ?Token {
 
             log.debug("unrecognized char '{c}'", .{c});
             return null;
-        }
+        },
     }
 }
 
 fn makeToken(scanner: *const Scanner, kind: Token.Kind) Token {
-    return Token {
+    return Token{
         .kind = kind,
         .line = scanner.line,
         .literal = scanner.source[scanner.start..scanner.current],
@@ -149,7 +143,7 @@ fn makeToken(scanner: *const Scanner, kind: Token.Kind) Token {
 
 fn advance(scanner: *Scanner) u8 {
     const c = scanner.peek();
-    log.debug("c = '{c}', idx = {}", .{c, scanner.current});
+    log.debug("c = '{c}', idx = {}", .{ c, scanner.current });
     scanner.current += 1;
     return c;
 }
@@ -183,7 +177,6 @@ fn peekNext(scanner: *const Scanner) u8 {
 }
 
 fn skipWhitespace(scanner: *Scanner) void {
-
     if (scanner.isAtEnd()) return;
 
     sw: switch (scanner.peek()) {
@@ -201,7 +194,6 @@ fn skipWhitespace(scanner: *Scanner) void {
 }
 
 fn makeTokenString(scanner: *Scanner) Token {
-
     scanner.start = scanner.current;
 
     while (scanner.peek() != '"' and !scanner.isAtEnd()) {
@@ -216,21 +208,17 @@ fn makeTokenString(scanner: *Scanner) Token {
     _ = scanner.advance();
 
     return string_token;
-
 }
 
 fn makeErrorToken(scanner: *Scanner, message: []const u8) Token {
-
-    return Token {
+    return Token{
         .line = scanner.line,
         .kind = .@"error",
         .literal = message,
     };
-
 }
 
 fn makeNumberToken(scanner: *Scanner) Token {
-
     while (isDigit(scanner.peek())) _ = scanner.advance();
 
     if (scanner.peek() == '.' and isDigit(scanner.peekNext())) {
@@ -240,7 +228,6 @@ fn makeNumberToken(scanner: *Scanner) Token {
     }
 
     return scanner.makeToken(.number);
-
 }
 
 fn makeIdentifeirOrKeyWordToken(scanner: *Scanner) Token {
@@ -252,18 +239,30 @@ fn makeIdentifeirOrKeyWordToken(scanner: *Scanner) Token {
 }
 
 fn makeKeyWordToken(scanner: *Scanner) ?Token {
-
     const str = scanner.source[scanner.start..scanner.current];
 
     if (std.meta.stringToEnum(Token.Kind, str)) |kind| {
         switch (kind) {
-            .@"and", .class, .@"else", .@"false",
-            .@"for", .fun, .@"if", .nil, .@"or",
-            .print, .@"return", .super, .this, .@"true",
-            .@"var", .@"while" => return scanner.makeToken(kind),
-            else =>  return null,
+            .@"and",
+            .class,
+            .@"else",
+            .false,
+            .@"for",
+            .fun,
+            .@"if",
+            .nil,
+            .@"or",
+            .print,
+            .@"return",
+            .super,
+            .this,
+            .true,
+            .@"var",
+            .@"while",
+            => return scanner.makeToken(kind),
+            else => return null,
         }
-    } 
+    }
 
     return null;
 }
@@ -273,7 +272,7 @@ fn isDigit(char: u8) bool {
 }
 
 fn isAlpha(char: u8) bool {
-    return (char >= 'A' and char <= 'Z') or 
+    return (char >= 'A' and char <= 'Z') or
         (char >= 'a' and char <= 'z') or
         char == '_';
 }
@@ -311,35 +310,32 @@ test "scanner" {
         // \\!false; // true.
     ;
 
-    const answers = [_]Token {
-        Token { .kind = .left_paren, .literal = "(", .line = 1 },
-        Token { .kind = .right_paren, .literal = ")", .line = 1 },
-        Token { .kind = .left_brace, .literal = "{", .line = 1 },
-        Token { .kind = .right_brace, .literal = "}", .line = 1 },
-        Token { .kind = .semicolon, .literal = ";", .line = 1 },
-        Token { .kind = .comma, .literal = ",", .line = 2 },
-        Token { .kind = .dot, .literal = ".", .line = 2 },
-        Token { .kind = .minus, .literal = "-", .line = 2 },
-        Token { .kind = .plus, .literal = "+", .line = 2 },
-        Token { .kind = .slash, .literal = "/", .line = 2 },
-        Token { .kind = .star, .literal = "*", .line = 2 },
-        Token { .kind = .string, .literal = "Hello, world!", .line = 3 },
-        Token { .kind = .semicolon, .literal = ";", .line = 3 },
-        Token { .kind = .number, .literal = "1234", .line = 4 },
-        Token { .kind = .semicolon, .literal = ";", .line = 4 },
-        Token { .kind = .number, .literal = "12.34", .line = 5 },
-        Token { .kind = .semicolon, .literal = ";", .line = 5 },
-        Token { .kind = .identifier, .literal = "add", .line = 6 },
-        Token { .kind = .plus, .literal = "+", .line = 6 },
-        Token { .kind = .identifier, .literal = "me", .line = 6 },
-        Token { .kind = .semicolon, .literal = ";", .line = 6 },
-        Token { .kind = .@"if", .literal = "if", .line = 7 },
-        Token { .kind = .string, .literal = "", .line = 10 },
-        Token { .kind = .semicolon, .literal = ";", .line = 10 },
-
-
+    const answers = [_]Token{
+        Token{ .kind = .left_paren, .literal = "(", .line = 1 },
+        Token{ .kind = .right_paren, .literal = ")", .line = 1 },
+        Token{ .kind = .left_brace, .literal = "{", .line = 1 },
+        Token{ .kind = .right_brace, .literal = "}", .line = 1 },
+        Token{ .kind = .semicolon, .literal = ";", .line = 1 },
+        Token{ .kind = .comma, .literal = ",", .line = 2 },
+        Token{ .kind = .dot, .literal = ".", .line = 2 },
+        Token{ .kind = .minus, .literal = "-", .line = 2 },
+        Token{ .kind = .plus, .literal = "+", .line = 2 },
+        Token{ .kind = .slash, .literal = "/", .line = 2 },
+        Token{ .kind = .star, .literal = "*", .line = 2 },
+        Token{ .kind = .string, .literal = "Hello, world!", .line = 3 },
+        Token{ .kind = .semicolon, .literal = ";", .line = 3 },
+        Token{ .kind = .number, .literal = "1234", .line = 4 },
+        Token{ .kind = .semicolon, .literal = ";", .line = 4 },
+        Token{ .kind = .number, .literal = "12.34", .line = 5 },
+        Token{ .kind = .semicolon, .literal = ";", .line = 5 },
+        Token{ .kind = .identifier, .literal = "add", .line = 6 },
+        Token{ .kind = .plus, .literal = "+", .line = 6 },
+        Token{ .kind = .identifier, .literal = "me", .line = 6 },
+        Token{ .kind = .semicolon, .literal = ";", .line = 6 },
+        Token{ .kind = .@"if", .literal = "if", .line = 7 },
+        Token{ .kind = .string, .literal = "", .line = 10 },
+        Token{ .kind = .semicolon, .literal = ";", .line = 10 },
     };
-
 
     var scanner: Scanner = .init(input[0..]);
 
@@ -355,7 +351,4 @@ test "scanner" {
     }
 
     try expectEqual(answers.len, i);
-
 }
-
-
